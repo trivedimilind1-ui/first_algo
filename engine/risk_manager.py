@@ -1,9 +1,9 @@
 """
 Risk Manager module.
-Enforces institutional capital preservation principles:
-1. Fixed fractional position sizing (1-2% risk rule).
+Enforces institutional capital preservation principles for Indian & global markets:
+1. Fixed fractional position sizing (1% risk rule).
 2. Daily loss circuit breaker to prevent emotional revenge trading and blow-ups.
-3. Realistic Capital & Feasibility Analysis for daily profit expectations.
+3. Realistic Capital & Feasibility Analysis for daily profit expectations in INR (₹).
 """
 
 from dataclasses import dataclass
@@ -28,11 +28,13 @@ class RiskManager:
         max_daily_loss_pct: float = 2.5,
         default_stop_loss_pct: float = 1.5,
         default_take_profit_pct: float = 3.0,
+        currency_symbol: str = "₹",
     ):
         self.max_risk_per_trade_pct = max_risk_per_trade_pct
         self.max_daily_loss_pct = max_daily_loss_pct
         self.default_stop_loss_pct = default_stop_loss_pct
         self.default_take_profit_pct = default_take_profit_pct
+        self.currency_symbol = currency_symbol
         self.daily_start_equity: float = 0.0
         self.is_circuit_breaker_tripped: bool = False
 
@@ -52,7 +54,10 @@ class RiskManager:
 
         if daily_change_pct <= -abs(self.max_daily_loss_pct):
             self.is_circuit_breaker_tripped = True
-            return True, f"DAILY CIRCUIT BREAKER TRIPPED! Down {daily_change_pct:.2f}% (Limit: -{self.max_daily_loss_pct}%). Trading halted for the day."
+            return True, (
+                f"DAILY CIRCUIT BREAKER TRIPPED! Down {daily_change_pct:.2f}% "
+                f"(Limit: -{self.max_daily_loss_pct}%). Trading halted for the day."
+            )
 
         return False, "Normal"
 
@@ -93,8 +98,15 @@ class RiskManager:
         shares = min(shares, max_affordable_shares)
 
         if shares <= 0:
+            sym = self.currency_symbol
             return PositionSizeResult(
-                0, 0.0, 0.0, 0.0, 0.0, False, f"Insufficient capital (Cash: ${cash:.2f}, Price: ${entry_price:.2f})."
+                0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                False,
+                f"Insufficient capital (Cash: {sym}{cash:,.2f}, Price: {sym}{entry_price:,.2f}).",
             )
 
         capital_allocated = shares * entry_price
@@ -111,42 +123,49 @@ class RiskManager:
         )
 
     @staticmethod
-    def calculate_capital_feasibility(daily_target_profit: float = 1000.0, available_capital: float = 500.0) -> Dict[str, Any]:
+    def calculate_capital_feasibility(
+        daily_target_profit: float = 1000.0,
+        available_capital: float = 5000.0,
+        currency_symbol: str = "₹",
+    ) -> Dict[str, Any]:
         """
-        Analyzes the mathematical feasibility of making $1,000/day with minimal capital.
+        Analyzes the mathematical feasibility of making ₹1,000/day with minimal capital.
         Provides realistic institutional estimates.
         """
         required_daily_return_pct = (daily_target_profit / available_capital) * 100.0
 
         # Benchmarks:
-        # Top quantitative hedge funds (e.g. Renaissance Medallion) average ~40-60% annualized (~0.15% - 0.2% daily).
-        # S&P 500 long-term daily average return is ~0.04% per trading day.
-        # Professional retail day traders aim for 0.2% - 0.5% daily average net of commissions.
-
-        realistic_daily_return_pct = 0.4  # Realistic high-performing target: 0.4% per trading day
+        # Nifty 50 long-term daily average return is ~0.05% per trading day.
+        # Professional retail day traders aim for 0.3% - 0.5% daily average net of STT and brokerage.
+        realistic_daily_return_pct = 0.4  # 0.4% per trading day (~100% annual compounded)
         sustainable_capital_needed = daily_target_profit / (realistic_daily_return_pct / 100.0)
 
         # Leverage required to hit target on low capital:
         leverage_required = required_daily_return_pct / realistic_daily_return_pct
 
-        risk_category = "Extremely High (Certain Account Wipeout)" if required_daily_return_pct > 20 else (
-            "High (High Drawdown Risk)" if required_daily_return_pct > 3 else "Realistic / Professional"
+        risk_category = (
+            "Extremely High (Near 100% Account Wipeout Risk)"
+            if required_daily_return_pct > 15
+            else ("High (Severe Drawdown Risk)" if required_daily_return_pct > 3 else "Realistic / Professional")
         )
 
+        sym = currency_symbol
         return {
             "daily_target_profit": daily_target_profit,
             "available_capital": available_capital,
+            "currency_symbol": sym,
             "required_daily_return_pct": required_daily_return_pct,
             "realistic_daily_return_pct": realistic_daily_return_pct,
             "sustainable_capital_needed": sustainable_capital_needed,
             "leverage_multiplier_needed": leverage_required,
             "risk_assessment": risk_category,
             "analysis_notes": (
-                f"Attempting to make ${daily_target_profit:.0f}/day on ${available_capital:.0f} requires a "
-                f"{required_daily_return_pct:.1f}% daily return ({leverage_required:.1f}x normal leverage).\n"
-                f"In real financial markets, trading with this level of leverage means a single adverse price movement "
-                f"of ~1% to 2% causes 100% liquidation (total capital loss).\n"
-                f"To sustainably target ${daily_target_profit:.0f}/day with sound 1% risk management, a capital base of "
-                f"approximately ${sustainable_capital_needed:,.0f} is mathematically required."
+                f"Targeting {sym}{daily_target_profit:,.0f}/day on {sym}{available_capital:,.0f} requires a "
+                f"{required_daily_return_pct:.1f}% daily return ({leverage_required:.1f}x normal risk).\n"
+                f"• In the Indian market (NSE/BSE), using high leverage with a tiny balance means an adverse swing "
+                f"of just 1% to 2% can trigger broker auto-square-off and wipe out 100% of your account.\n"
+                f"• (Note: SEBI studies show 93% of retail intraday traders incur net losses due to overleveraging).\n"
+                f"• To sustainably and safely generate {sym}{daily_target_profit:,.0f}/day at 1% max risk per trade, "
+                f"a professional capital base of approximately {sym}{sustainable_capital_needed:,.0f} is recommended."
             ),
         }

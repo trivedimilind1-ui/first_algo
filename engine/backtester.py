@@ -36,6 +36,7 @@ class Backtester:
             max_daily_loss_pct=self.config.max_daily_loss_pct,
             default_stop_loss_pct=self.config.stop_loss_pct,
             default_take_profit_pct=self.config.take_profit_pct,
+            currency_symbol=getattr(self.config, "currency_symbol", "₹"),
         )
         self.order_manager = OrderManager(
             initial_capital=self.config.initial_capital,
@@ -205,5 +206,6 @@ class Backtester:
             "avg_win": avg_win,
             "avg_loss": avg_loss,
             "avg_daily_pnl": avg_daily_pnl,
+            "currency_symbol": getattr(self.config, "currency_symbol", "₹"),
             "trades": trades,
         }
