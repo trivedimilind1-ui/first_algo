@@ -15,6 +15,7 @@ try:
     from engine.data_feed import DataFeed
     from strategies.momentum_rsi import MomentumRSIStrategy
     from strategies.mean_reversion import MeanReversionStrategy
+    from strategies.micro_scalper import MicroScalperStrategy
     HAS_PANDAS = True
 except ImportError:
     HAS_PANDAS = False
@@ -103,6 +104,14 @@ class TestStrategies(unittest.TestCase):
         self.assertIn("bb_mid", df.columns)
         self.assertIn("bb_upper", df.columns)
         self.assertIn("bb_lower", df.columns)
+
+    def test_micro_scalper_indicators(self):
+        strat = MicroScalperStrategy()
+        df = strat.generate_indicators(self.data)
+        self.assertIn("fast_ema", df.columns)
+        self.assertIn("slow_ema", df.columns)
+        self.assertIn("vol_sma", df.columns)
+        self.assertIn("roc", df.columns)
 
 
 if __name__ == "__main__":

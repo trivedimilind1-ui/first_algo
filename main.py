@@ -115,7 +115,11 @@ def run_backtest_pipeline(
     sym = currency_symbol
     try:
         from engine import DataFeed, Backtester
-        from strategies import MomentumRSIStrategy, MeanReversionStrategy
+        from strategies import (
+            MomentumRSIStrategy,
+            MeanReversionStrategy,
+            MicroScalperStrategy,
+        )
     except ImportError as e:
         print("\n" + "!" * 70)
         print("  NOTICE: Live NSE data and backtesting require 'pandas' and 'yfinance'.")
@@ -139,6 +143,11 @@ def run_backtest_pipeline(
 
     if strategy_name.lower() == "mean_reversion":
         strategy = MeanReversionStrategy()
+    elif strategy_name.lower() in ("scalper", "micro_scalper"):
+        print("\n[!] RUNNING MICRO-SCALPER (MICRO-PROFIT TARGETING)")
+        print("    Target: +0.4% quick take-profit per trade.")
+        print("    Safety: -0.6% stop-loss enforced to prevent total steamroller wipeouts.")
+        strategy = MicroScalperStrategy()
     else:
         strategy = MomentumRSIStrategy()
 
@@ -174,8 +183,8 @@ def main():
         "--strategy",
         type=str,
         default="momentum",
-        choices=["momentum", "mean_reversion"],
-        help="Strategy",
+        choices=["momentum", "mean_reversion", "scalper"],
+        help="Strategy (momentum, mean_reversion, or scalper)",
     )
     parser.add_argument(
         "--timeframe",
